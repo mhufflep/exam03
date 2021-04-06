@@ -76,7 +76,7 @@ int     is_rect(t_all *all, float y, float x)
     {
         return (0);
     }
-    if (((x - all->p.x < 1.00000000) || ((all->p.x + all->p.w) - x < 1.00000000)) || ((y - all->p.y < 1.00000000) || ((all->p.y + all->p.h) - y < 1.00000000)))
+    if (((x - all->p.x < 1.0) || ((all->p.x + all->p.w) - x < 1.0)) || ((y - all->p.y < 1.0) || ((all->p.y + all->p.h) - y < 1.0)))
     {
         return (2);
     }
@@ -104,22 +104,22 @@ void     write_rectangle(t_all *all)
     }
 }
 
-int     read_field_line(t_all *all, t_field *f)
+int     read_conf_line(t_all *all, t_prm *p)
 {
-	all->res = fscanf(all->file, HEAD, &f->w, &f->h, &f->bc);
-	if (all->res != 3)
-		return (1);
-	if (f->w <= 0 || f->w > 300 || f->h <= 0 || f->h > 300)
+    all->res = fscanf(all->file, OPER, &(p->id), &(p->x), &(p->y), &(p->w), &(p->h), &(p->cl));
+    if (p->w <= 0.0 || p->h <= 0.0 || (p->id != 'r' && p->id != 'R')) //0.00000000 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         return (1);
     return (0);
 }
 
-int     read_oper_line(t_all *all, t_prm *p)
+int read_field_line(t_all *all, t_field *f)
 {
-    all->res = fscanf(all->file, OPER, &(p->id), &(p->x), &(p->y), &(p->w), &(p->h), &(p->cl));
-	if (p->w > 0.00000000 && p->h > 0.00000000 && (p->id == 'r' || p->id == 'R')) //0.00000000 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        return (1);
-    return (0);
+	all->res = fscanf(all->file, HEAD, &f->w, &f->h, &f->bc);
+	if (all->res != 3 || f->w <= 0 || f->w > 300 || f->h <= 0 || f->h > 300)
+		return (1);
+	if (all->res == -1)
+		return (1);
+	return (0);
 }
 
 int allocate_buffer(t_all *all)
@@ -132,18 +132,20 @@ int allocate_buffer(t_all *all)
 
 int read_cycle(t_all *all)
 {
-	int op_res;
+    read_field_line(all, &all->f);
+    if (allocate_buffer(all))
+        return (1);
+    write_background(all);
 
-    while (1)
+    read_conf_line(all, &all->p);
+    while (all->res == 6)
     {
-		op_res = read_oper_line(all, &all->p);
-		if (all->res == -1 && op_res == 1)
-			return (0);
-		if (all->res == 6 && op_res == 1)
-        	write_rectangle(all);
-		else
-			return (1);
+        write_rectangle(all);
+        if (read_conf_line(all, &all->p))
+            return (1);
     }
+    if (all->res != -1)
+        return (1);
     return (0);
 }
 
@@ -160,33 +162,26 @@ void    draw_all(t_all *all)
     }
 }
 
-int	clean_all(t_all *all)
+void clean_all(t_all *all)
 {
+	free(all->buf);
     fclose(all->file);
-	if (all->buf)
-		free(all->buf);
-	return (1);
 }
 
 int main(int argc, char **argv)
 {
     t_all all;
 
-	all.f.w = 0;
-	all.f.h = 0;
-	all.f.bc = 0;
     if (argc != 2)
         return (put_error(ERR_BAD_ARGUMENTS));
     all.file = fopen(argv[1], "r");
-	if (!all.file)
-        return (put_error(ERR_FILE_CORRUPTED));	
-    if (read_field_line(&all, &all.f))
-		return (put_error(ERR_FILE_CORRUPTED) && clean_all(&all));
-    if (allocate_buffer(&all))
-        return (put_error(ERR_FILE_CORRUPTED) && clean_all(&all));
-    write_background(&all);
-	if (read_cycle(&all))
-		return (put_error(ERR_FILE_CORRUPTED) && clean_all(&all));
+    if (!all.file)
+        return (put_error(ERR_FILE_CORRUPTED));
+    if (read_cycle(&all))
+	{
+		clean_all(&all);
+		return (put_error(ERR_FILE_CORRUPTED));
+	}
     draw_all(&all);
     clean_all(&all);
     return (0);
