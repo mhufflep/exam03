@@ -1,7 +1,24 @@
+/**************************************
+**               HEADER
+***************************************/
+
 #include <stdio.h>
 #include <unistd.h>
 #include <math.h>
 #include <stdlib.h>
+
+#define ERR_BAD_ARGUMENTS 	"Error: argument"
+#define ERR_FILE_CORRUPTED	"Error: Operation file corrupted"
+
+#define HEAD "%d %d %c\n"
+#define OPER "%c %f %f %f %c\n"
+
+enum      e_pos
+{
+    OUTSIDE = 0,
+    INSIDE = 1,
+    BORDER = 2
+};
 
 typedef struct  s_prm
 {
@@ -28,13 +45,9 @@ typedef struct  s_all
     char *buf;
 }               t_all;
 
-int  init(t_all *all)
-{
-    all->buf = malloc(all->f.w * all->f.h);
-    if (all->buf == NULL)
-        return (1);
-    return (0);
-}
+/**************************************
+**               UTILS
+***************************************/
 
 int ft_strlen(char *str)
 {
@@ -53,18 +66,30 @@ int     put_error(char *str)
     return (1);
 }
 
+/**************************************
+**               ALGO
+***************************************/
+
+int  init(t_all *all)
+{
+    all->buf = malloc(all->f.w * all->f.h);
+    if (all->buf == NULL)
+        return (1);
+    return (0);
+}
+
 int     in_circle(t_all *all, float x, float y)
 {
     float dist = sqrtf((x - all->p.x) * (x - all->p.x) + (y - all->p.y) * (y - all->p.y));
     if (dist > all->p.r)
     {
-        return (0);
+        return (OUTSIDE);
     }
     else if (((dist - all->p.r) * (dist - all->p.r)) < 1.0)
     {
-        return (2);
+        return (BORDER);
     }
-    return (1);
+    return (INSIDE);
 }
 
 void    write_background(t_all *all)
@@ -90,7 +115,7 @@ void    write_circle(t_all *all)
 {
     int i;
     int j;
-    int res;
+    int pos;
 
     i = 0;
     while (i < all->f.h)
@@ -98,8 +123,8 @@ void    write_circle(t_all *all)
         j = 0;
         while (j < all->f.w)
         {
-            res = in_circle(all, j, i);
-            if ((all->p.id == 'c' && res == 2) || (all->p.id == 'C' && res > 0))
+            pos = in_circle(all, j, i);
+            if ((all->p.id == 'c' && pos == BORDER) || (all->p.id == 'C' && pos != OUTSIDE))
                 all->buf[i * all->f.w + j] = all->p.cl;
             j++;
         }
@@ -109,7 +134,7 @@ void    write_circle(t_all *all)
 
 int     parse_head(t_all *all)
 {
-    all->res = fscanf(all->file, "%d %d %c\n", &all->f.w, &all->f.h, &all->f.bc);
+    all->res = fscanf(all->file, HEAD, &all->f.w, &all->f.h, &all->f.bc);
     if (all->f.w <= 0 || all->f.w > 300 || all->f.h <= 0 || all->f.h > 300)
         return (1);
     return (0);
@@ -117,7 +142,7 @@ int     parse_head(t_all *all)
 
 int     parse_prm(t_all *all)
 {
-    all->res = fscanf(all->file, "%c %f %f %f %c\n", &all->p.id, &all->p.x, &all->p.y, &all->p.r, &all->p.cl);
+    all->res = fscanf(all->file, OPER, &all->p.id, &all->p.x, &all->p.y, &all->p.r, &all->p.cl);
     if (all->p.r <= 0.0)
         return (1);
     return (0);
@@ -167,14 +192,9 @@ int main(int argc, char **argv)
     t_all all;
 
     if (argc != 2)
-    {
-        return (put_error("Error: argument"));
-    }
-    else
-    {
-        if (try_open(&all, argv[1]) || main_cycle(&all))
-            return (put_error("Error: Operation file corrupted"));
-    }
+        return (put_error(ERR_BAD_ARGUMENTS));
+    else if (try_open(&all, argv[1]) || main_cycle(&all))
+        return (put_error(ERR_FILE_CORRUPTED));
     draw_all(&all);
     fclose(all.file);
     free(all.buf);
