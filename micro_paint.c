@@ -181,7 +181,7 @@ void    draw_all(t_all *all)
 
 void clean_all(t_all *all)
 {
-	free(all->buf);
+    free(all->buf);
     fclose(all->file);
 }
 
@@ -196,8 +196,8 @@ int main(int argc, char **argv)
         return (put_error(ERR_FILE_CORRUPTED));
     if (read_cycle(&all))
 	{
-		clean_all(&all);
-		return (put_error(ERR_FILE_CORRUPTED));
+        clean_all(&all);
+        return (put_error(ERR_FILE_CORRUPTED));
 	}
     draw_all(&all);
     clean_all(&all);
